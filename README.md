@@ -101,17 +101,202 @@ code -v
 1.55.2
 ```
 
-前文提到的`Vue CLI 3`中开箱即用和`Webpack`使用方法。
+前文提到的`Vue CLI 3`中**开箱即用**和`Webpack`使用方法。
 
 `vue3-project/package.json`中有一个`debug`按钮。
 
+![debug示意图](./debug.png)
+
+我们来搜索下`'launch-editor-middleware'`这个中间件，一般来说搜索不到`node_modules`下的文件，需要设置下。当然也有个简单做法。就是「排除的文件」右侧旁边有个设置图标「使用“排查设置”与“忽略文件”」，点击下。
+
+其他的就不赘述了。可以看这篇知乎回答：[vscode怎么设置可以搜索包含node_modules中的文件?](https://www.zhihu.com/question/309220217/answer/586510407)
+
+这时就搜到了`vue3-project/node_modules/@vue/cli-service/lib/commands/serve.js`中有使用这个中间件。
+
 ## 4. 具体源码实现
 
-### 4.1 launch-editor-middleware
+接着我们来看`Vue CLI 3`中**开箱即用**具体源码实现。
 
-### 4.2 launch-editor
+```js
+// vue3-project/node_modules/@vue/cli-service/lib/commands/serve.js
+// 46行
+const launchEditorMiddleware = require('launch-editor-middleware')
+// 192行
+before (app, server) {
+    // launch editor support.
+    // this works with vue-devtools & @vue/cli-overlay
+    app.use('/__open-in-editor', launchEditorMiddleware(() => console.log(
+        `To specify an editor, specify the EDITOR env variable or ` +
+        `add "editor" field to your Vue project config.\n`
+    )))
+    // 省略若干代码...
+}
+```
 
-## 5. 
+## 5 launch-editor-middleware
+
+```js
+// vue3-project/node_modules/launch-editor-middleware/index.js
+const url = require('url')
+const path = require('path')
+const launch = require('launch-editor')
+
+module.exports = (specifiedEditor, srcRoot, onErrorCallback) => {
+  if (typeof specifiedEditor === 'function') {
+    onErrorCallback = specifiedEditor
+    specifiedEditor = undefined
+  }
+
+  if (typeof srcRoot === 'function') {
+    onErrorCallback = srcRoot
+    srcRoot = undefined
+  }
+
+  srcRoot = srcRoot || process.cwd()
+
+  return function launchEditorMiddleware (req, res, next) {
+    const { file } = url.parse(req.url, true).query || {}
+    if (!file) {
+      res.statusCode = 500
+      res.end(`launch-editor-middleware: required query param "file" is missing.`)
+    } else {
+      launch(path.resolve(srcRoot, file), specifiedEditor, onErrorCallback)
+      res.end()
+    }
+  }
+}
+
+```
+
+## 4.2 launch-editor
+
+```js
+// vue3-project/node_modules/launch-editor/index.js
+function launchEditor (file, specifiedEditor, onErrorCallback) {
+  const parsed = parseFile(file)
+  let { fileName } = parsed
+  const { lineNumber, columnNumber } = parsed
+
+  if (!fs.existsSync(fileName)) {
+    return
+  }
+
+  if (typeof specifiedEditor === 'function') {
+    onErrorCallback = specifiedEditor
+    specifiedEditor = undefined
+  }
+
+  onErrorCallback = wrapErrorCallback(onErrorCallback)
+
+  const [editor, ...args] = guessEditor(specifiedEditor)
+  if (!editor) {
+    onErrorCallback(fileName, null)
+    return
+  }
+  // 省略剩余部分，后文再讲述...
+}
+```
+
+### wrapErrorCallback
+
+```js
+onErrorCallback = wrapErrorCallback(onErrorCallback)
+```
+
+这段的代码，我相信读者朋友能看懂，我单独拿出来讲述，主要是因为这种包裹函数的形式在很多源码里都很常见。
+这里也就是文章开头终端错误图`Could not open App.vue in the editor.`输出的代码位置。
+
+```js
+// vue3-project/node_modules/launch-editor/index.js
+function wrapErrorCallback (cb) {
+  return (fileName, errorMessage) => {
+    console.log()
+    console.log(
+      chalk.red('Could not open ' + path.basename(fileName) + ' in the editor.')
+    )
+    if (errorMessage) {
+      if (errorMessage[errorMessage.length - 1] !== '.') {
+        errorMessage += '.'
+      }
+      console.log(
+        chalk.red('The editor process exited with an error: ' + errorMessage)
+      )
+    }
+    console.log()
+    if (cb) cb(fileName, errorMessage)
+  }
+}
+```
+
+### guessEditor 猜测编辑器
+
+```js
+const [editor, ...args] = guessEditor(specifiedEditor)
+```
+
+```js
+// vue3-project/node_modules/launch-editor/guess.js
+guessEditor
+```
+
+### 4.2 launch-editor 剩余部分
+
+```js
+function launchEditor(){
+  //  省略上部分...
+  if (
+    process.platform === 'linux' &&
+    fileName.startsWith('/mnt/') &&
+    /Microsoft/i.test(os.release())
+  ) {
+    // Assume WSL / "Bash on Ubuntu on Windows" is being used, and
+    // that the file exists on the Windows file system.
+    // `os.release()` is "4.4.0-43-Microsoft" in the current release
+    // build of WSL, see: https://github.com/Microsoft/BashOnWindows/issues/423#issuecomment-221627364
+    // When a Windows editor is specified, interop functionality can
+    // handle the path translation, but only if a relative path is used.
+    fileName = path.relative('', fileName)
+  }
+
+  if (lineNumber) {
+    const extraArgs = getArgumentsForPosition(editor, fileName, lineNumber, columnNumber)
+    args.push.apply(args, extraArgs)
+  } else {
+    args.push(fileName)
+  }
+
+  if (_childProcess && isTerminalEditor(editor)) {
+    // There's an existing editor process already and it's attached
+    // to the terminal, so go kill it. Otherwise two separate editor
+    // instances attach to the stdin/stdout which gets confusing.
+    _childProcess.kill('SIGKILL')
+  }
+
+  if (process.platform === 'win32') {
+    // On Windows, launch the editor in a shell because spawn can only
+    // launch .exe files.
+    _childProcess = childProcess.spawn(
+      'cmd.exe',
+      ['/C', editor].concat(args),
+      { stdio: 'inherit' }
+    )
+  } else {
+    _childProcess = childProcess.spawn(editor, args, { stdio: 'inherit' })
+  }
+  _childProcess.on('exit', function (errorCode) {
+    _childProcess = null
+
+    if (errorCode) {
+      onErrorCallback(fileName, '(code ' + errorCode + ')')
+    }
+  })
+
+  _childProcess.on('error', function (error) {
+    onErrorCallback(fileName, error.message)
+  })
+}
+```
+
 
 有什么作用
 也可以再看看[umijs/launch-editor](https://github.com/umijs/launch-editor)原理实现。

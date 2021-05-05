@@ -13,8 +13,7 @@ highlight: dracula
 
 >**要是有人说到怎么读源码，正在读文章的你能推荐我的源码系列文章，那真是无以为报啊**。
 
-源码类文章，一般阅读量不高。已经有能力看懂的，自己就看了。不想看，不敢看的就不会去看源码。
-所以我的文章，尽量写得让想看源码又不知道怎么看的读者能看懂。我都是推荐使用**搭建环境断点调试源码学习**，**哪里不会点哪里**，**边调试边看，而不是硬看**。正所谓：**授人与鱼不如授人予渔**。
+我的文章尽量写得让想看源码又不知道怎么看的读者能看懂。我都是推荐使用**搭建环境断点调试源码学习**，**哪里不会点哪里**，**边调试边看，而不是硬看**。正所谓：**授人与鱼不如授人予渔**。
 
 阅读本文后你将学到：
 1. 如何解决该功能报错问题<br>
@@ -25,13 +24,13 @@ highlight: dracula
 
 不知道你们有没有碰到这样的场景，打开你自己（或者你同事）开发的页面，却短时间难以找到对应的源文件。
 
-这时你可能会想要是能有**点击页面按钮用编辑器打开对应文件**的功能，那该多好啊。
+这时你可能会想要是能有**点击页面按钮自动用编辑器打开对应文件**的功能，那该多好啊。
 
 而`vue-devtools`提供了这样的功能，也许你不知道。我觉得很大一部分人都不知道，因为感觉很多人都不常用`vue-devtools`。
 
-![open-in-editor](./images/open-in-editor.png)
+![open-in-editor](./images/open-src-app.vue.png)
 
-你也许会问，我不用`vue`，我用`react`有没有类似功能啊，有的[react-dev-inspector](https://github.com/zthxxx/react-dev-inspector)。
+你也许会问，我不用`vue`，我用`react`有没有类似功能啊，有啊，请看[react-dev-inspector](https://github.com/zthxxx/react-dev-inspector)。
 
 本文就是根据学习尤大写的 [launch-editor](https://github.com/yyx990803/launch-editor) 源码，本着**知其然，知其所以然**的宗旨，探究 `vue-devtools`「在编辑器中打开组件」功能实现原理。
 
@@ -75,7 +74,7 @@ EDITOR=code
 [vuejs/vue-devtools](https://github.com/vuejs/vue-devtools#open-component-in-editor)
 文档
 
-> **Open component in editor**
+> **Open component in editor**<br>
 >To enable this feature, follow [this guide](https://github.com/vuejs/vue-devtools/blob/dev/docs/open-in-editor.md).
 
 这篇指南中写了在`Vue CLI 3`中是**开箱即用**。
@@ -181,7 +180,7 @@ before (app, server) {
 
 ## 5. launch-editor-middleware
 
-看源码时，先调试截图。
+看源码时，先看调试截图。
 
 ![debug-launch](./images/debug-launch.png)
 
@@ -223,7 +222,7 @@ module.exports = (specifiedEditor, srcRoot, onErrorCallback) => {
 可以根据情况打上断点。比如这里我会在`launch(path.resolve(srcRoot, file), specifiedEditor, onErrorCallback)`打断点。
 
 ```js
-// 
+// vue3-project/node_modules/launch-editor-middleware/index.js
 module.exports = (specifiedEditor, srcRoot, onErrorCallback) => {
   // 省略上半部分
   return function launchEditorMiddleware (req, res, next) {
@@ -361,6 +360,7 @@ module.exports = function guessEditor (specifiedEditor) {
 以下这段代码不用细看，调试的时候细看就行。
 
 ```js
+// vue3-project/node_modules/launch-editor/index.js
 function launchEditor(){
   //  省略上部分...
   if (
@@ -439,7 +439,11 @@ if (process.platform === 'win32') {
 ## 7. 总结
 
 这里总结一下：首先文章开头通过提出「短时间找不到页面对应源文件的场景」，并针对容易碰到的报错情况给出了解决方案。
-其次，配置了环境跟着调试学习了`vue-devtools`中使用的尤大写的[yyx990803/launch-editor](https://github.com/yyx990803/launch-editor)。最后
+其次，配置了环境跟着调试学习了`vue-devtools`中使用的尤大写的 [yyx990803/launch-editor](https://github.com/yyx990803/launch-editor)。
+
+### 7.1 一句话简述其原理
+
+我们回顾下开头的原理内容。
 
 ```sh
 code path/to/file
@@ -447,10 +451,16 @@ code path/to/file
 
 一句话简述原理：利用`nodejs`中的`child_process`，执行了类似`code path/to/file`命令，于是对应编辑器就打开了相应的文件，而对应的编辑器则是通过在进程中执行`ps x`（`Window`则用`Get-Process`）命令来查找的，当然也可以自己指定编辑器。
 
-最后还能做什么呢。利用`Node.js`做一些提高开发效率等工作，同时可以学习`child_process`等模块。
+最后还能做什么呢。
 
-也可以再看看[umijs/launch-editor](https://github.com/umijs/launch-editor)原理实现。
-[react-dev-utils/launchEditor.js](https://github.com/facebook/create-react-app/blob/master/packages/react-dev-utils/launchEditor.js)。他们的代码几乎类似。
+可以再看看 [umijs/launch-editor](https://github.com/umijs/launch-editor) 和 [react-dev-utils/launchEditor.js](https://github.com/facebook/create-react-app/blob/master/packages/react-dev-utils/launchEditor.js) 。他们的代码几乎类似。
+
+也可以利用`Node.js`做一些提高开发效率等工作，同时可以学习`child_process`等模块。
+
+## 关于
+
+>你好，我是[若川](https://lxchuan12.gitee.io)，微信搜索[「若川视野」](https://mp.weixin.qq.com/s/c3hFML3XN9KCUetDOZd-DQ)关注我，专注前端技术分享，一个愿景是帮助5年内前端开阔视野走向前列的公众号。欢迎加我微信`ruochuan12`，长期交流学习。
+主要有以下系列文章：[学习源码整体架构系列](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzA5MjQwMzQyNw==&action=getalbum&album_id=1342211915371675650#wechat_redirect)、[年度总结](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzA5MjQwMzQyNw==&action=getalbum&album_id=1668518390266724360#wechat_redirect)、[JS基础系列](https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzA5MjQwMzQyNw==&action=getalbum&album_id=1342989113611419648#wechat_redirect)
 
 ## 参考链接
 
@@ -458,5 +468,6 @@ code path/to/file
 [umijs/launch-editor](https://github.com/umijs/launch-editor)<br>
 [vuejs/vue-devtools](https://github.com/vuejs/vue-devtools)<br>
 [vue-devtools open-in-editor.md](https://github.com/vuejs/vue-devtools/blob/dev/docs/open-in-editor.md)<br>
-["Open in editor" button doesn't work in Win 10 with VSCode if installation path contains spaces](https://github.com/vuejs/vue-devtools/issues/821)
-[react-dev-utils/launchEditor.js](https://github.com/facebook/create-react-app/blob/master/packages/react-dev-utils/launchEditor.js)
+["Open in editor" button doesn't work in Win 10 with VSCode if installation path contains spaces](https://github.com/vuejs/vue-devtools/issues/821)<br>
+[react-dev-utils/launchEditor.js](https://github.com/facebook/create-react-app/blob/master/packages/react-dev-utils/launchEditor.js)<br>
+

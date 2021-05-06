@@ -18,7 +18,7 @@ highlight: dracula
 阅读本文后你将学到：
 1. 如何解决该功能报错问题<br>
 2. 如何调试学习源码<br>
-3. `launch-editor` 等实现原理<br>
+3. `launch-editor-middleware、launch-editor` 等实现原理<br>
 
 ### 1.1 短时间找不到页面对应源文件的场景
 

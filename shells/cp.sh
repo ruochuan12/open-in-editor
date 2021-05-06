@@ -60,9 +60,9 @@ cd ../blog/
 git pull
 git status
 git add docs/open-in-editor
-# git commit -m "update: docs/open-in-editor 同步 open-in-editor :construction:"
-# git push
-# git status
+git commit -m "update: docs/open-in-editor 同步 open-in-editor :construction:"
+git push
+git status
 
 
 echo

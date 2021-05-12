@@ -477,7 +477,7 @@ if (process.platform === 'win32') {
 }
 ```
 
-行文至此，就基本接近尾声了，其实就是利用`nodejs`中的`child_process`，执行了类似`code path/to/file`命令。
+行文至此，就基本接近尾声了。原理其实就是利用`nodejs`中的`child_process`，执行了类似`code path/to/file`命令。
 
 ## 7. 总结
 
